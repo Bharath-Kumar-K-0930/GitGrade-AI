@@ -1,0 +1,23 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.so
+
+# Node
+node_modules/
+.next/
+dist/
+out/
+build/
+
+# IDEs
+.vscode/
+.idea/
+
+# Misc
+.DS_Store
+.env
+*.log
+*.pdf
+backend/pdfs/
