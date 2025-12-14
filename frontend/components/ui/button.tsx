@@ -40,12 +40,7 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant, size, asChild = false, ...props }, ref) => {
-        // If we installed @radix-ui/react-slot we could use Slot
-        // But I didn't install it, so let's skip asChild for now and just render button
-        // Actually, ShadCN uses Slot. I'll just use "button" element directly to avoid dep error
-        // or install @radix-ui/react-slot.
-        // I didn't install @radix-ui/react-slot. I'll remove `Slot` usage and `asChild`.
-        const Comp = "button"
+        const Comp = asChild ? Slot : "button"
         return (
             <Comp
                 className={cn(buttonVariants({ variant, size, className }))}
