@@ -1,8 +1,11 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 import uvicorn
 import os
+import sys
+
+# Add backend directory to sys.path to allow 'from app.xxx' imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from fastapi import FastAPI, HTTPException
 
 from app.github_fetcher import fetch_repo_data
 from app.code_analyzer import analyze_code
