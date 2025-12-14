@@ -32,6 +32,7 @@ class AnalyzeRequest(BaseModel):
     url: str
 
 @app.post("/analyze")
+@app.post("/api/analyze")
 def analyze_repo_endpoint(request: AnalyzeRequest):
     import sys
     try:
@@ -376,6 +377,7 @@ def analyze_repo_endpoint(request: AnalyzeRequest):
     }
 
 @app.get("/download-pdf")
+@app.get("/api/download-pdf")
 def download_pdf_endpoint(repo: str, score: int, summary: str, roadmap: str):
     # Re-generating PDF on the fly or saving it.
     # Passing complex data via GET is bad. Better to use POST or pass ID.
