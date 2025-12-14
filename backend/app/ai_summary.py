@@ -1,51 +1,60 @@
 from openai import OpenAI
 import os
+from app.feedback_engine import derive_facts
 
 def generate_summary(repo: dict, code: dict, commits: dict) -> str:
     """
-    Generates a recruitment-style summary using OpenAI.
+    Generates a recruiter-style summary by asking AI to explain the derived facts.
+    Facts -> Narrative.
     """
+    facts = derive_facts(code, commits, repo)
+    strengths = facts["strengths"]
+    weaknesses = facts["weaknesses"]
+    
     api_key = os.getenv("OPENAI_API_KEY")
+    
+    # Construction of the prompt context
+    strength_text = "\n".join([f"- {s}" for s in strengths]) if strengths else "- None identified"
+    weakness_text = "\n".join([f"- {w}" for w in weaknesses]) if weaknesses else "- None identified"
+
     if not api_key:
-        # Rich Fallback based on sample outputs (Judge-Ready)
-        # We can guess the quality based on inputs
-        if commits['good_commit_ratio'] > 0.7 and code['has_tests']:
-             return "A well-structured, production-ready repository with clean code, meaningful commits, and clear documentation. Perfect for advanced deployment."
-        elif code['has_tests'] or commits['good_commit_ratio'] > 0.5:
-             return "The project shows a good structure and functional code, but testing or CI practices could be improved. Documentation is present but could be more detailed."
-        else:
-             return "The repository demonstrates a basic working implementation but lacks proper documentation, testing, and consistent commit practices. Refactoring is recommended."
+        # Deterministic Mirror (Fallback)
+        # We manually construct sentences from the first few facts
+        summary = "Analysis Results: "
+        if strengths:
+            summary += f"The repository demonstrates {strengths[0].lower()} and {strengths[1].lower() if len(strengths)>1 else 'good fundamentals'}. "
+        
+        if weaknesses:
+            summary += f"However, {weaknesses[0].lower()} and {weaknesses[1].lower() if len(weaknesses)>1 else 'improvements are needed'}. "
+        elif strengths:
+            summary += "It shows strong engineering maturity overall."
+            
+        return summary.strip()
 
     client = OpenAI(api_key=api_key)
     
     prompt = f"""
-    You are a senior software engineer reviewing a student's GitHub repository.
-
-    Evaluate it like a recruiter.
+    You are a generic Repository Mirror. 
+    Review these FACTS about a GitHub repository and write a 2-sentence professional recruiter evaluation.
     
-    Repo Name: {repo['name']}
-    Languages: {repo['languages']}
-    Has Tests: {code['has_tests']}
-    Commit Quality Ratio: {commits['good_commit_ratio']}
+    STRENGTHS:
+    {strength_text}
     
-    Focus on:
-    - Code quality
-    - Structure
-    - Documentation
-    - Testing
-    - Commit consistency
-    - Real-world usefulness
+    WEAKNESSES:
+    {weakness_text}
     
-    Be honest, concise, and constructive.
-    Limit to 3 lines.
+    TASK:
+    Convert these bullet points into a cohesive, professional narrative. 
+    Do NOT invent new attributes. Reflect ONLY these facts.
+    Balance the tone: verify quality but be honest about gaps.
     """
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o", # or gpt-3.5-turbo if 4 not avail
+            model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return "The project shows promise but requires improvements in documentation and testing to meet professional standards."
+        return f"The project shows {len(strengths)} strengths (e.g., {strengths[0] if strengths else 'N/A'}) but has {len(weaknesses)} areas for improvement ({weaknesses[0] if weaknesses else 'N/A'})."

@@ -15,6 +15,8 @@ interface AnalysisData {
     level: string;
     summary: string;
     roadmap: string[];
+    breakdown?: Record<string, number>;
+    verdict?: string;
 }
 
 function ResultPageContent() {
@@ -25,18 +27,12 @@ function ResultPageContent() {
     const router = useRouter();
 
     useEffect(() => {
-        // Basic Mock Data for Immediate Fallback
-        const mockData = {
-            repo_name: "example-repo",
-            owner: "demo-user",
-            score: 85,
-            level: "Advanced",
-            summary: "DEMO MODE: The AI service is currently experiencing high latencies. This is a sample analysis. The repository shows excellent structure and code quality.",
-            roadmap: ["Add unit tests", "Improve documentation", "Set up CI/CD"]
-        };
+        // Use relative URL for Vercel (production), but full URL for localhost dev
+        // If window.location.hostname is localhost, assume backend is at :8000
+        const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://localhost:8000/analyze" : "/api/analyze");
 
-        // Use relative URL for Vercel deployment (rewrites to backend)
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/analyze";
+        if (!repoUrl) return;
 
         fetch(apiUrl, {
             method: "POST",
@@ -45,20 +41,17 @@ function ResultPageContent() {
         })
             .then(async (res) => {
                 if (!res.ok) {
-                    console.warn("Backend failed, using mock data");
-                    // Set mock data on error so UI shows SOMETHING
-                    setData(mockData as AnalysisData);
-                    return;
+                    const errText = await res.text();
+                    throw new Error(`Server Error: ${res.status} ${errText}`);
                 }
                 return res.json();
             })
             .then((data) => {
-                if (data) setData(data);
+                setData(data);
             })
             .catch((err) => {
                 console.error("Fetch error:", err);
-                // Set mock data on fetch error
-                setData(mockData as AnalysisData);
+                setError(err.message || "Failed to connect to GitGrade AI Service.");
             })
             .finally(() => {
                 setLoading(false);
@@ -68,7 +61,14 @@ function ResultPageContent() {
     const handleDownloadPdf = () => {
         if (!data) return;
         const roadmapStr = data.roadmap.join(',');
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/analyze', '') : '/api';
+
+        // Consistent URL logic
+        const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+        let baseUrl = process.env.NEXT_PUBLIC_API_URL || (isLocal ? "http://localhost:8000" : "/api");
+
+        // Remove trailing slash or /analyze if present
+        baseUrl = baseUrl.replace(/\/analyze$/, '').replace(/\/$/, '');
+
         const url = `${baseUrl}/download-pdf?repo=${data.repo_name}&score=${data.score}&summary=${encodeURIComponent(data.summary)}&roadmap=${encodeURIComponent(roadmapStr)}`;
         window.open(url, '_blank');
     };
@@ -117,7 +117,7 @@ function ResultPageContent() {
                 {/* Content */}
                 {data && (
                     <>
-                        <ScoreCard score={data.score} />
+                        <ScoreCard score={data.score} verdict={data.verdict} />
                         <SummaryCard summary={data.summary} />
                         <RoadmapList roadmap={data.roadmap} />
                     </>
