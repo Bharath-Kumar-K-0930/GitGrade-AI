@@ -35,9 +35,10 @@ function ResultPageContent() {
             roadmap: ["Add unit tests", "Improve documentation", "Set up CI/CD"]
         };
 
-        if (!repoUrl) return;
+        // Use relative URL for Vercel deployment (rewrites to backend)
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "/api/analyze";
 
-        fetch("http://localhost:8000/analyze", {
+        fetch(apiUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: repoUrl }),
@@ -66,8 +67,9 @@ function ResultPageContent() {
 
     const handleDownloadPdf = () => {
         if (!data) return;
-        const roadmapStr = data.roadmap.join(','); // simplistic passing
-        const url = `http://localhost:8000/download-pdf?repo=${data.repo_name}&score=${data.score}&summary=${encodeURIComponent(data.summary)}&roadmap=${encodeURIComponent(roadmapStr)}`;
+        const roadmapStr = data.roadmap.join(',');
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace('/analyze', '') : '/api';
+        const url = `${baseUrl}/download-pdf?repo=${data.repo_name}&score=${data.score}&summary=${encodeURIComponent(data.summary)}&roadmap=${encodeURIComponent(roadmapStr)}`;
         window.open(url, '_blank');
     };
 
