@@ -5,7 +5,8 @@ def get_github_client():
     token = os.getenv("GITHUB_TOKEN")
     if not token or token.strip() == "":
         token = None
-    return Github(token)
+    # retry=0 ensures we throw an exception immediately instead of sleeping for rate limit reset
+    return Github(token, retry=0)
 
 def fetch_repo_data(repo_url: str):
     """
@@ -14,14 +15,17 @@ def fetch_repo_data(repo_url: str):
     g = get_github_client()
     
     import re
+    from github import GithubException
     try:
         # Regex to match owner/repo from various formats:
         # https://github.com/owner/repo
         # github.com/owner/repo
         # owner/repo
         
-        # Strip trailing .git
-        clean_url = repo_url.strip().rstrip(".git")
+        # Strip trailing .git suffix safely
+        clean_url = repo_url.strip()
+        if clean_url.endswith(".git"):
+            clean_url = clean_url[:-4]
         
         match = re.search(r'github\.com[:/]([^/]+)/([^/]+)', clean_url)
         if match:
@@ -50,7 +54,6 @@ def fetch_repo_data(repo_url: str):
             readme = None
             
         # Get top-level files (simplification for "files")
-        # For deep analysis we might need recursive, but "get_contents('')" is per spec
         files = repository.get_contents("")
         
         return {
@@ -58,10 +61,11 @@ def fetch_repo_data(repo_url: str):
             "stars": repository.stargazers_count,
             "forks": repository.forks_count,
             "languages": languages,
-            "files": files, # List of ContentFile objects
+            "files": files,
             "readme": readme,
             "default_branch": repository.default_branch,
-            "has_api": True # Mock or check strictly
+            "has_api": True
         }
     except Exception as e:
+        print(f"GitHub Fetch Error: {str(e)}")
         return {"error": str(e)}
